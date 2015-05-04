@@ -11,7 +11,7 @@ set LIBRARIES=user32.lib gdi32.lib
 @rem -Zi 		enable debugging
 @rem -FC		full pathnames in diagnostics
 
-set OPTIONS=-Zi
+set OPTIONS=-Zi -FC
 
 set CC=cl %OPTIONS% "D:\Dev\Project\Game\src\game.cpp" %LIBRARIES%
 %CC%
