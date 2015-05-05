@@ -1,19 +1,13 @@
-@rem load VisualStudio Compiler before executing
-
 @echo off
 
-mkdir .\build
+IF NOT EXIST .\build mkdir .\build
 pushd .\build
 
+set OPTIONS=-Zi -FC
 set LIBRARIES=user32.lib gdi32.lib
 
-@rem -F<num> 	stack size
-@rem -Zi 		enable debugging
-@rem -FC		full pathnames in diagnostics
+set CC=cl %OPTIONS% "D:\Dev\Project\Game\src\win32_game.cpp" %LIBRARIES%
 
-set OPTIONS=-Zi -FC
-
-set CC=cl %OPTIONS% "D:\Dev\Project\Game\src\game.cpp" %LIBRARIES%
 %CC%
 
 popd
