@@ -1,7 +1,37 @@
 #ifndef GAME_H
 #define GAME_H
 
+/*
+Compiler flags
+	- GAME_RELEASE:
+		0 - Release build
+		1 - Developper build
+
+	- GAME_ASSERTS:
+		0 - Ignore asserts
+		1 - Enable asserts
+*/
+
+#if GAME_ASSERTS
+#define Assert(Expression) if(!(Expression)) { *(int *)0 = 0;}
+#else
+#define Assert(Expression)
+#endif
+
+#define Kilobytes(Value) ((Value)*1024)
+#define Megabytes(Value) (Kilobytes(Value)*1024)
+#define Gigabytes(Value) (Megabytes(Value)*1024)
+#define Terabytes(Value) (Gigabytes(Value)*1024)
+
 #define ArrayCount(Array) (sizeof(Array) / sizeof((Array)[0]))
+
+inline uint32
+SafeTruncateUInt64(uint64 Value)
+{
+    Assert(Value <= 0xFFFFFFFF);
+    uint32 Result = (uint32)Value;
+    return Value;
+}
 
 /*
 	TODO: Services that the platform layer provides to the game
@@ -11,8 +41,6 @@
 	NOTE: Services that the game provides to the platform layer
 	(this may expand in the future - sound on separate thread ...)
 */
-// FOUR THINGS -> Timing, Controller/Keyboard input, Bitmap buffer to use, Sound buffer to user
-
 struct game_offscreen_buffer
 {
     // NOTE: Pixels are always 32-bits wide, Memory Order BB GG RR XX
@@ -67,7 +95,26 @@ struct game_controller_input
 
 struct game_input
 {
+	// TODO: Insert clock values here
 	game_controller_input Controllers[4];
+};
+
+struct game_memory
+{
+	bool32 IsInitialized;
+
+	uint64 PermanentStorageSize;
+	void *PermanentStorage; // NOTE:  REQUIRED to be cleared to zero
+
+	uint64 TransientStorageSize;
+	void *TransientStorage; // NOTE:  REQUIRED to be cleared to zero
+};
+
+struct game_state
+{
+	int ToneHz;
+	int GreenOffset;
+	int BlueOffset;
 };
 
 internal void GameUpdateAndRender(
@@ -75,5 +122,16 @@ internal void GameUpdateAndRender(
 	game_offscreen_buffer *ScreenBuffer, 
 	game_sound_output_buffer *SoundBuffer
 );
+
+#if GAME_RELEASE != 1
+struct debug_read_file_result
+{
+	uint32 ContentsSize;
+	void *Contents;
+};
+internal debug_read_file_result DEBUGPlatformReadEntireFile(char *Filename);
+internal bool32 DEBUGPlatformWriteEntireFile(char *Filename, uint32 MemorySize, void *Memory);
+internal void DEBUGPlatformFreeFileMemory(void *Memory);
+#endif
 
 #endif
