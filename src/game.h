@@ -3,7 +3,7 @@
 
 /*
 Compiler flags
-	- GAME_RELEASE:
+	- INTERNAL:
 		0 - Release build
 		1 - Developper build
 
@@ -30,7 +30,7 @@ SafeTruncateUInt64(uint64 Value)
 {
     Assert(Value <= 0xFFFFFFFF);
     uint32 Result = (uint32)Value;
-    return Value;
+    return Result;
 }
 
 /*
@@ -118,12 +118,18 @@ struct game_state
 };
 
 internal void GameUpdateAndRender(
+	game_memory *Memory,
 	game_input *Input,
-	game_offscreen_buffer *ScreenBuffer, 
+	game_offscreen_buffer *ScreenBuffer
+);
+
+// WARNING: < 1ms !
+internal void GameGetSoundSamples(
+	game_memory *Memory,
 	game_sound_output_buffer *SoundBuffer
 );
 
-#if GAME_RELEASE != 1
+#if INTERNAL
 struct debug_read_file_result
 {
 	uint32 ContentsSize;
