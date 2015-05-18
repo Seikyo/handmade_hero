@@ -30,9 +30,8 @@ RenderWeirGradient(game_offscreen_buffer *Buffer, int BlueOffset, int GreenOffse
         {
             uint8 Blue = (uint8)(X + BlueOffset);
             uint8 Green = (uint8)(Y + GreenOffset);
-            uint8 Red = (uint8)(Blue - Green);
 
-            *Pixel++ = ((Red << 16) | (Green << 8) | Blue);
+            *Pixel++ = ((Green << 8) | Blue);
         }
 
         Row += Buffer->Pitch;

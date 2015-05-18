@@ -334,72 +334,13 @@ Win32MainWindowCallback(HWND Window,
         case WM_KEYDOWN:
         case WM_KEYUP:
         {
-            uint32 VKCode = (uint32)WParam;
-            bool WasDown = ((LParam & (1 << 30)) != 0);
-            bool IsDown =  ((LParam & (1 << 31)) == 0);
-            if(WasDown != IsDown)
-            {
-                if(VKCode == 'W')
-                {
-                }
-                else if(VKCode == 'A')
-                {
-                }
-                else if(VKCode == 'S')
-                {
-                }
-                else if(VKCode == 'D')
-                {
-                }
-                else if(VKCode == 'Q')
-                {
-                }
-                else if(VKCode == 'E')
-                {
-                }
-                else if(VKCode == VK_UP)
-                {
-                }
-                else if(VKCode == VK_LEFT)
-                {
-                }
-                else if(VKCode == VK_DOWN)
-                {
-                }
-                else if(VKCode == VK_RIGHT)
-                {
-                }
-                else if(VKCode == VK_ESCAPE)
-                {
-                }
-                else if(VKCode == VK_SPACE)
-                {
-                }
-#if INTERNAL
-                else if(VKCode == 'P')
-                {
-                    GlobalPause = !GlobalPause;
-                }
-#endif
-            }
-
-            bool32 AltKeyWasDown = (LParam & (1 << 29));
-            if((VKCode == VK_F4) && AltKeyWasDown)
-            {
-                GlobalRunning = false;
-            }
-            /*LParam & (1 << 30);*/
+            Assert("Wrong keyboard handler");
         } break;
 
         case WM_PAINT:
         {
             PAINTSTRUCT Paint;
             HDC DeviceContext = BeginPaint(Window, &Paint);
-            int X = Paint.rcPaint.left;
-            int Y = Paint.rcPaint.top;
-            int Height = Paint.rcPaint.bottom - Paint.rcPaint.top;
-            int Width = Paint.rcPaint.right - Paint.rcPaint.left;
-
             win32_window_dimension Dimension = Win32GetWindowDimension(Window);
             Win32DisplayBufferInWindow(&GlobalBackBuffer, DeviceContext, Dimension.Width, Dimension.Height);
             EndPaint(Window, &Paint);
@@ -478,6 +419,13 @@ Win32FillSoundBuffer(win32_sound_output *SoundOutput, DWORD ByteToLock, DWORD By
 
         GlobalSecondaryBuffer->Unlock(Region1, Region1Size, Region2, Region2Size);
     }
+}
+
+internal void
+Win32ProcessKeyboardMessage(game_button_state *NewState, bool32 IsDown)
+{
+    NewState->EndedDown = IsDown;
+    ++NewState->HalfTransitionCount;
 }
 
 internal void
@@ -664,10 +612,10 @@ WinMain(HINSTANCE Instance,
 #endif
             game_memory GameMemory = {};
             GameMemory.PermanentStorageSize = Megabytes(64);
-            GameMemory.TransientStorageSize = Gigabytes((uint64)4);
+            GameMemory.TransientStorageSize = Gigabytes(1);
 
             uint64 TotalSize = GameMemory.PermanentStorageSize + GameMemory.TransientStorageSize;
-            GameMemory.PermanentStorage = VirtualAlloc(BaseAddress, TotalSize, MEM_RESERVE|MEM_COMMIT, PAGE_READWRITE);
+            GameMemory.PermanentStorage = VirtualAlloc(BaseAddress, (size_t)TotalSize, MEM_RESERVE|MEM_COMMIT, PAGE_READWRITE);
             GameMemory.TransientStorage = ((uint8 *)GameMemory.PermanentStorage + GameMemory.PermanentStorageSize);
 
             if(Samples && GameMemory.PermanentStorage && GameMemory.TransientStorage)
@@ -690,6 +638,11 @@ WinMain(HINSTANCE Instance,
                 while(GlobalRunning)
                 {
                     MSG Message;
+
+                    game_controller_input *KeyboardController = &NewInput->Controllers[0];
+                    game_controller_input ZeroController = {};
+                    *KeyboardController = ZeroController;
+
                     while(PeekMessage(&Message, 0, 0, 0, PM_REMOVE))
                     {
                         if(Message.message == WM_QUIT)
@@ -697,8 +650,80 @@ WinMain(HINSTANCE Instance,
                             GlobalRunning = false;
                         }
 
-                        TranslateMessage(&Message);
-                        DispatchMessage(&Message);
+                        switch(Message.message)
+                        {
+                            case WM_SYSKEYDOWN:
+                            case WM_SYSKEYUP:
+                            case WM_KEYDOWN:
+                            case WM_KEYUP:
+                            {
+                                uint32 VKCode = (uint32)Message.wParam;
+                                bool WasDown = ((Message.lParam & (1 << 30)) != 0);
+                                bool IsDown =  ((Message.lParam & (1 << 31)) == 0);
+                                if(WasDown != IsDown)
+                                {
+                                    if(VKCode == 'Z')
+                                    {
+                                    }
+                                    else if(VKCode == 'Q')
+                                    {
+                                    }
+                                    else if(VKCode == 'S')
+                                    {
+                                    }
+                                    else if(VKCode == 'D')
+                                    {
+                                    }
+                                    else if(VKCode == 'A')
+                                    {
+                                        Win32ProcessKeyboardMessage(&KeyboardController->LeftShoulder, IsDown);
+                                    }
+                                    else if(VKCode == 'E')
+                                    {
+                                        Win32ProcessKeyboardMessage(&KeyboardController->RightShoudler, IsDown);
+                                    }
+                                    else if(VKCode == VK_UP)
+                                    {
+                                        Win32ProcessKeyboardMessage(&KeyboardController->Up, IsDown);
+                                    }
+                                    else if(VKCode == VK_LEFT)
+                                    {
+                                        Win32ProcessKeyboardMessage(&KeyboardController->Left, IsDown);
+                                    }
+                                    else if(VKCode == VK_DOWN)
+                                    {
+                                        Win32ProcessKeyboardMessage(&KeyboardController->Down, IsDown);
+                                    }
+                                    else if(VKCode == VK_RIGHT)
+                                    {
+                                        Win32ProcessKeyboardMessage(&KeyboardController->Right, IsDown);
+                                    }
+                                    else if(VKCode == VK_ESCAPE)
+                                    {
+                                        GlobalRunning = false;
+                                    }
+                                    else if(VKCode == VK_SPACE)
+                                    {
+                                    }
+#if INTERNAL
+                                    else if(VKCode == 'P')
+                                    {
+                                        GlobalPause = !GlobalPause;
+                                    }
+#endif
+                                }
+                                bool32 AltKeyWasDown = (Message.lParam & (1 << 29));
+                                if((VKCode == VK_F4) && AltKeyWasDown)
+                                {
+                                    GlobalRunning = false;
+                                }
+                            } break;
+                            default:
+                            {
+                                TranslateMessage(&Message);
+                                DispatchMessage(&Message);
+                            } break;
+                        }
                     }
 
                     // TODO: Should we poll this more frequently
@@ -960,7 +985,7 @@ WinMain(HINSTANCE Instance,
                 // TODO: Log
             }
 
-            VirtualFree((&GameMemory)->PermanentStorage, TotalSize, MEM_RELEASE);
+            VirtualFree((&GameMemory)->PermanentStorage, (size_t)TotalSize, MEM_RELEASE);
         }
         else
         {
