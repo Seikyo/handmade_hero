@@ -51,4 +51,22 @@ struct win32_game_code
     bool32 IsValid;
 };
 
+struct win32_recorded_input
+{
+	int InputCount;
+	game_input *InputStream;
+};
+
+struct win32_state
+{
+	uint64 TotalSize;
+	void *GameMemoryBlock;
+
+	HANDLE RecordingHandle;
+	int InputRecordingIndex;
+
+	HANDLE PlayBackHandle;
+	int InputPlayingIndex;
+};
+
 #endif

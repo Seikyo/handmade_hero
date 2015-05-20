@@ -92,6 +92,7 @@ struct game_offscreen_buffer
     int Width;
     int Height;
     int Pitch;
+    int BytesPerPixel;
 };
 
 struct game_sound_output_buffer
@@ -172,6 +173,10 @@ struct game_state
 	int GreenOffset;
 	int BlueOffset;
 	float32 tSine;
+
+	int PlayerX;
+	int PlayerY;
+	float32 tJump;
 };
 
 #define GAME_UPDATE_AND_RENDER(name) void name(game_memory *Memory, game_input *Input, game_offscreen_buffer *ScreenBuffer)
