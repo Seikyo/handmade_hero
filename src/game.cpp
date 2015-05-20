@@ -1,21 +1,24 @@
 #include "game.h"
 
 internal void
-GameOutputSound(game_sound_output_buffer *SoundBuffer, int ToneHz)
+GameOutputSound(game_sound_output_buffer *SoundBuffer, game_state *GameState)
 {
-	local_persist float32 tSine;
 	int16 ToneVolume = 3000;
-	int WavePeriod = SoundBuffer->SamplesPerSecond / ToneHz;
+	int WavePeriod = SoundBuffer->SamplesPerSecond / GameState->ToneHz;
 
 	int16 * SampleOut = SoundBuffer->Samples;
 	for(int SampleIndex=0; SampleIndex < SoundBuffer->SampleCount; ++SampleIndex)
 	{
-		float32 SineValue = sinf(tSine);
+		float32 SineValue = sinf(GameState->tSine);
 		int16 SampleValue = (int16)(SineValue * ToneVolume);
 		*SampleOut++ = SampleValue;
 		*SampleOut++ = SampleValue;
 
-		tSine += 2.f * Pi32 * 1.f / (float32)WavePeriod;
+		GameState->tSine += 2.f * Pi32 / (float32)WavePeriod;
+		if(GameState->tSine > 2.f*Pi32)
+		{
+			GameState->tSine -= 2.f*Pi32;
+		}
 	}
 }
 
@@ -38,10 +41,8 @@ RenderWeirGradient(game_offscreen_buffer *Buffer, int BlueOffset, int GreenOffse
     }
 }
 
-internal void		
-GameUpdateAndRender(game_memory *Memory,
-					game_input *Input,
-					game_offscreen_buffer *ScreenBuffer) 
+		
+extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender) 
 {
 	Assert((&Input->Controllers[0].Start - &Input->Controllers[0].Buttons[0]) == 
 		(ArrayCount(Input->Controllers[0].Buttons) - 1));
@@ -52,13 +53,14 @@ GameUpdateAndRender(game_memory *Memory,
 	{
 		char *Filename = __FILE__;
 
-		// debug_read_file_result File = DEBUGPlatformReadEntireFile(Filename);
-		// if(File.Contents)
-		// {
-		// 	DEBUGPlatformWriteEntireFile("test.out", File.ContentsSize, File.Contents);
-		// 	DEBUGPlatformFreeFileMemory(File.Contents);
-		// }
-		GameState->ToneHz = 256;
+		debug_read_file_result File = Memory->DEBUGPlatformReadEntireFile(Filename);
+		if(File.Contents)
+		{
+			Memory->DEBUGPlatformWriteEntireFile("test.out", File.ContentsSize, File.Contents);
+			Memory->DEBUGPlatformFreeFileMemory(File.Contents);
+		}
+		GameState->ToneHz = 440;
+		GameState->tSine = 0.f;
 		Memory->IsInitialized = true;
 	}
 
@@ -68,7 +70,7 @@ GameUpdateAndRender(game_memory *Memory,
 		if(Controller->IsAnalog)
 		{
 			GameState->BlueOffset += (int)(4.f * Controller->StickAverageX);
-			GameState->ToneHz = 256 + (int)(128.f * Controller->StickAverageY);
+			GameState->ToneHz = 440 + (int)(128.f * Controller->StickAverageY);
 		}
 		else
 		{
@@ -91,9 +93,8 @@ GameUpdateAndRender(game_memory *Memory,
 	RenderWeirGradient(ScreenBuffer, GameState->BlueOffset, GameState->GreenOffset);
 }
 
-internal void
-GameGetSoundSamples(game_memory *Memory, game_sound_output_buffer *SoundBuffer)
+extern "C" GAME_GET_SOUND_SAMPLES(GameGetSoundSamples)
 {
 	game_state *GameState = (game_state *)Memory->PermanentStorage;
-	GameOutputSound(SoundBuffer, GameState->ToneHz);
+	GameOutputSound(SoundBuffer, GameState);
 }
