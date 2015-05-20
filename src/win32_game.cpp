@@ -357,7 +357,14 @@ Win32MainWindowCallback(HWND Window,
 
         case WM_ACTIVATEAPP:
         {
-            OutputDebugStringA("WM_ACTIVATEAPP\n");
+            if(WParam == TRUE)
+            {
+                SetLayeredWindowAttributes(Window, RGB(0,0,0), 255, LWA_ALPHA);
+            }
+            else
+            {
+                SetLayeredWindowAttributes(Window, RGB(0,0,0), 64, LWA_ALPHA);
+            }
         } break;
 
         case WM_SYSKEYDOWN:
@@ -839,7 +846,7 @@ WinMain(HINSTANCE Instance,
     if (RegisterClassA(&WindowClass))
     {
         HWND Window = CreateWindowExA(
-            0,
+            WS_EX_TOPMOST|WS_EX_LAYERED,
             WindowClass.lpszClassName,
             "Game",
             WS_OVERLAPPEDWINDOW | WS_VISIBLE,
@@ -1200,7 +1207,9 @@ WinMain(HINSTANCE Instance,
                                               DebugTimeMarkerIndex - 1,
                                               &SoundOutput, TargetSecondsPerFrame);
 #endif
+                        HDC DeviceContext = GetDC(Window);
                         Win32DisplayBufferInWindow(&GlobalBackBuffer, DeviceContext, Dimension.Width, Dimension.Height);
+                        ReleaseDC(Window, DeviceContext);
 
                         FlipWallClock = Win32GetWallClock();
 #if INTERNAL
