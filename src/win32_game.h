@@ -26,7 +26,6 @@ struct win32_sound_output
     DWORD SecondaryBufferSize;
     DWORD SafetyBytes;
     float32 tSine;
-    int LatencySampleCount;
 };
 
 struct win32_debug_time_marker
@@ -45,6 +44,8 @@ struct win32_game_code
 {
     HMODULE GameCodeDLL;
     FILETIME DLLLastWriteTime;
+
+    // NOTE: Either of the callbacks can be 0
     game_update_and_render *UpdateAndRender;
     game_get_sound_samples *GetSoundSamples;
 
@@ -57,6 +58,7 @@ struct win32_recorded_input
 	game_input *InputStream;
 };
 
+#define WIN32_STATE_FILE_NAME_COUNT MAX_PATH
 struct win32_state
 {
 	uint64 TotalSize;
@@ -67,6 +69,9 @@ struct win32_state
 
 	HANDLE PlayBackHandle;
 	int InputPlayingIndex;
+
+	char EXEFilename[WIN32_STATE_FILE_NAME_COUNT];
+	char *OnePastLastEXEFilenameSlash;
 };
 
 #endif

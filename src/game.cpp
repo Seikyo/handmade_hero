@@ -78,11 +78,11 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 	{
 		char *Filename = __FILE__;
 
-		debug_read_file_result File = Memory->DEBUGPlatformReadEntireFile(Filename);
+		debug_read_file_result File = Memory->DEBUGPlatformReadEntireFile(Thread, Filename);
 		if(File.Contents)
 		{
-			Memory->DEBUGPlatformWriteEntireFile("test.out", File.ContentsSize, File.Contents);
-			Memory->DEBUGPlatformFreeFileMemory(File.Contents);
+			Memory->DEBUGPlatformWriteEntireFile(Thread, "test.out", File.ContentsSize, File.Contents);
+			Memory->DEBUGPlatformFreeFileMemory(Thread, File.Contents);
 		}
 		GameState->ToneHz = 440;
 		GameState->tSine = 0.f;
@@ -128,6 +128,15 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 
 	RenderWeirGradient(ScreenBuffer, GameState->BlueOffset, GameState->GreenOffset);
 	RenderPlayer(ScreenBuffer, GameState->PlayerX, GameState->PlayerY);
+
+	RenderPlayer(ScreenBuffer, Input->MouseX, Input->MouseY);
+	
+	for(int ButtonIndex = 0; ButtonIndex < ArrayCount(Input->MouseButtons); ++ButtonIndex)
+	{
+		if(Input->MouseButtons[ButtonIndex].EndedDown){
+			RenderPlayer(ScreenBuffer, 10 + 20 * ButtonIndex, 10);
+		}
+	}
 }
 
 extern "C" GAME_GET_SOUND_SAMPLES(GameGetSoundSamples)

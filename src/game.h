@@ -56,25 +56,28 @@ SafeTruncateUInt64(uint64 Value)
     return Result;
 }
 
+struct thread_context
+{
+	int Placeholder;
+};
+
 #if INTERNAL
+
 	struct debug_read_file_result
 	{
 		uint32 ContentsSize;
 		void *Contents;
 	};
 
-	#define DEBUG_PLATFORM_READ_ENTIRE_FILE(name) debug_read_file_result name(char *Filename)
+	#define DEBUG_PLATFORM_READ_ENTIRE_FILE(name) debug_read_file_result name(thread_context *Thread, char *Filename)
 	typedef DEBUG_PLATFORM_READ_ENTIRE_FILE(debug_platform_read_entire_file);
 
-	#define DEBUG_PLATFORM_WRITE_ENTIRE_FILE(name) bool32 name(char *Filename, uint32 MemorySize, void *Memory)
+	#define DEBUG_PLATFORM_WRITE_ENTIRE_FILE(name) bool32 name(thread_context *Thread, char *Filename, uint32 MemorySize, void *Memory)
 	typedef DEBUG_PLATFORM_WRITE_ENTIRE_FILE(debug_platform_write_entire_file);
 
-	#define DEBUG_PLATFORM_FREE_FILE_MEMORY(name) void name(void *Memory)
+	#define DEBUG_PLATFORM_FREE_FILE_MEMORY(name) void name(thread_context *Thread, void *Memory)
 	typedef DEBUG_PLATFORM_FREE_FILE_MEMORY(debug_platform_free_file_memory);
 
-	debug_read_file_result DEBUGPlatformReadEntireFile(char *Filename);
-	bool32 DEBUGPlatformWriteEntireFile(char *Filename, uint32 MemorySize, void *Memory);
-	void DEBUGPlatformFreeFileMemory(void *Memory);
 #endif
 
 /*
@@ -141,6 +144,9 @@ struct game_controller_input
 
 struct game_input
 {
+	game_button_state MouseButtons[5];
+	int32 MouseX, MouseY, MouseZ;
+
 	// TODO: Insert clock values here
 	game_controller_input Controllers[5];
 };
@@ -179,17 +185,11 @@ struct game_state
 	float32 tJump;
 };
 
-#define GAME_UPDATE_AND_RENDER(name) void name(game_memory *Memory, game_input *Input, game_offscreen_buffer *ScreenBuffer)
+#define GAME_UPDATE_AND_RENDER(name) void name(thread_context *Thread, game_memory *Memory, game_input *Input, game_offscreen_buffer *ScreenBuffer)
 typedef GAME_UPDATE_AND_RENDER(game_update_and_render);
-GAME_UPDATE_AND_RENDER(GameUpdateAndRenderStub)
-{
-}
 
 // WARNING: < 1ms !
-#define GAME_GET_SOUND_SAMPLES(name) void name(game_memory *Memory, game_sound_output_buffer *SoundBuffer)
+#define GAME_GET_SOUND_SAMPLES(name) void name(thread_context *Thread, game_memory *Memory, game_sound_output_buffer *SoundBuffer)
 typedef GAME_GET_SOUND_SAMPLES(game_get_sound_samples);
-GAME_GET_SOUND_SAMPLES(GameGetSoundSamplesStub)
-{
-}
 
 #endif
