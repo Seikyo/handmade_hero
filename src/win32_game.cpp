@@ -13,6 +13,8 @@ global_variable bool32 GlobalPause;
 global_variable win32_offscreen_buffer GlobalBackBuffer;
 global_variable LPDIRECTSOUNDBUFFER GlobalSecondaryBuffer;
 global_variable int64 GlobalPerformanceCounterFrequency;
+global_variable int WINDOW_WIDTH = 960;
+global_variable int WINDOW_HEIGHT = 540;
 
 // NOTE: XInputGetState
 #define X_INPUT_GET_STATE(name) DWORD WINAPI name(DWORD dwUserIndex, XINPUT_STATE *pState)
@@ -416,7 +418,7 @@ Win32MainWindowCallback(HWND Window,
             }
             else
             {
-                SetLayeredWindowAttributes(Window, RGB(0,0,0), 64, LWA_ALPHA);
+                SetLayeredWindowAttributes(Window, RGB(0,0,0), 128, LWA_ALPHA);
             }
         } break;
 
@@ -897,7 +899,7 @@ WinMain(HINSTANCE Instance,
 
     WNDCLASSA WindowClass = {};
 
-    Win32ResizeDIBSection(&GlobalBackBuffer, 1280, 720);
+    Win32ResizeDIBSection(&GlobalBackBuffer, WINDOW_WIDTH, WINDOW_HEIGHT);
 
     WindowClass.style = CS_HREDRAW|CS_VREDRAW;
     WindowClass.lpfnWndProc = Win32MainWindowCallback;
@@ -907,14 +909,14 @@ WinMain(HINSTANCE Instance,
     if (RegisterClassA(&WindowClass))
     {
         HWND Window = CreateWindowExA(
-            WS_EX_TOPMOST|WS_EX_LAYERED,
+            WS_EX_TOPMOST | WS_EX_LAYERED,
             WindowClass.lpszClassName,
             "Game",
             WS_OVERLAPPEDWINDOW | WS_VISIBLE,
             CW_USEDEFAULT,
             CW_USEDEFAULT,
-            CW_USEDEFAULT,
-            CW_USEDEFAULT,
+            WINDOW_WIDTH,
+            WINDOW_HEIGHT,
             0,
             0,
             Instance,
@@ -1029,6 +1031,8 @@ WinMain(HINSTANCE Instance,
                 uint64 LastCycleCount = __rdtsc();
                 while(GlobalRunning)
                 {
+                    NewInput->dTForFrame = TargetSecondsPerFrame;
+
                     FILETIME NewDLLWriteTime = Win32GetLastWriteTime(SourceGameCodeDLLFullPath);
                     if(CompareFileTime(&NewDLLWriteTime, &Game.DLLLastWriteTime) != 0)
                     {
@@ -1329,7 +1333,7 @@ WinMain(HINSTANCE Instance,
                         LastCounter = EndCounter;
 
                         win32_window_dimension Dimension = Win32GetWindowDimension(Window);
-#if 1
+#if 0
                         // TODO: Wrong for the first time for DebugTimeMarkerIndex - 1
                          Win32DebugSyncDisplay(&GlobalBackBuffer, ArrayCount(DebugTimeMarkers), DebugTimeMarkers,
                                                DebugTimeMarkerIndex - 1, &SoundOutput, TargetSecondsPerFrame);

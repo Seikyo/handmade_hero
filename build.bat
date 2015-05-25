@@ -3,7 +3,7 @@
 IF NOT EXIST .\build mkdir .\build
 pushd .\build
 
-set C_FLAGS=-MTd -nologo -Gm- -GR- -EHa -Od -Oi -WX -W4 -DGAME_ASSERTS=1 -DINTERNAL=1 -DWIN32=1 -FC -Z7 -wd4201 -wd4189 -wd4100
+set C_FLAGS=-MTd -nologo -Gm- -GR- -EHa -Od -Oi -WX -W4 -DGAME_ASSERTS=1 -DINTERNAL=1 -DWIN32=1 -FC -Z7 -wd4201 -wd4189 -wd4100 -wd4505
 set L_FLAGS=-incremental:no -opt:ref 
 set LIBS=user32.lib gdi32.lib winmm.lib
 
