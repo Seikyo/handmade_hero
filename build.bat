@@ -20,6 +20,7 @@ REM 32-bit build
 REM cl %C_FLAGS% ".\build\win32_game.cpp" /link %L_FLAGS% -subsystem:windows,5.01 %LIBS%
 
 REM 64-bit build
+REM Optimization switches /O2 /Oi /fp:fast
 cl %C_FLAGS% "..\src\game.cpp" -Fmgame.map -LD /link -incremental:no -PDB:game_%datetime%.pdb /DLL -EXPORT:GameGetSoundSamples -EXPORT:GameUpdateAndRender
 cl %C_FLAGS% "..\src\win32_game.cpp" -Fmwin32_game.map /link %L_FLAGS% -subsystem:windows,5.02 %LIBS%
 

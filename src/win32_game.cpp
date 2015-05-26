@@ -377,7 +377,7 @@ Win32DisplayBufferInWindow(win32_offscreen_buffer *Buffer,
 {
     int OffsetX = 10;
     int OffsetY = 10;
-    
+
     PatBlt(DeviceContext, 0, 0, WindowWidth, OffsetY, BLACKNESS);
     PatBlt(DeviceContext, 0, OffsetY + Buffer->Height, WindowWidth, WindowHeight, BLACKNESS);
     PatBlt(DeviceContext, 0, 0, OffsetX, WindowHeight, BLACKNESS);
@@ -918,7 +918,8 @@ WinMain(HINSTANCE Instance,
     if (RegisterClassA(&WindowClass))
     {
         HWND Window = CreateWindowExA(
-            WS_EX_TOPMOST | WS_EX_LAYERED,
+            // WS_EX_TOPMOST | WS_EX_LAYERED,
+            WS_EX_LAYERED,
             WindowClass.lpszClassName,
             "Game",
             WS_OVERLAPPEDWINDOW | WS_VISIBLE,
