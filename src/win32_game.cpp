@@ -375,9 +375,18 @@ Win32DisplayBufferInWindow(win32_offscreen_buffer *Buffer,
                            HDC DeviceContext,
                            int WindowWidth, int WindowHeight)
 {
+    int OffsetX = 10;
+    int OffsetY = 10;
+    
+    PatBlt(DeviceContext, 0, 0, WindowWidth, OffsetY, BLACKNESS);
+    PatBlt(DeviceContext, 0, OffsetY + Buffer->Height, WindowWidth, WindowHeight, BLACKNESS);
+    PatBlt(DeviceContext, 0, 0, OffsetX, WindowHeight, BLACKNESS);
+    PatBlt(DeviceContext, 0, 0, WindowWidth, WindowHeight, BLACKNESS);
+    PatBlt(DeviceContext, OffsetX + Buffer->Width, 0, WindowWidth, WindowHeight, BLACKNESS);
+
     // NOTE: 1 to 1 pixels render
     StretchDIBits(DeviceContext,
-                  0, 0, Buffer->Width, Buffer->Height,
+                  OffsetX, OffsetY, Buffer->Width, Buffer->Height,
                   0, 0, Buffer->Width, Buffer->Height,
                   Buffer->Memory,
                   &Buffer->Info,
@@ -915,8 +924,8 @@ WinMain(HINSTANCE Instance,
             WS_OVERLAPPEDWINDOW | WS_VISIBLE,
             CW_USEDEFAULT,
             CW_USEDEFAULT,
-            WINDOW_WIDTH,
-            WINDOW_HEIGHT,
+            WINDOW_WIDTH + 36,
+            WINDOW_HEIGHT + 60,
             0,
             0,
             Instance,
