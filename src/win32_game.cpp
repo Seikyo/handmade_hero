@@ -13,6 +13,7 @@ global_variable bool32 GlobalPause;
 global_variable win32_offscreen_buffer GlobalBackBuffer;
 global_variable LPDIRECTSOUNDBUFFER GlobalSecondaryBuffer;
 global_variable int64 GlobalPerformanceCounterFrequency;
+
 global_variable int WINDOW_WIDTH = 960;
 global_variable int WINDOW_HEIGHT = 540;
 
@@ -381,7 +382,6 @@ Win32DisplayBufferInWindow(win32_offscreen_buffer *Buffer,
     PatBlt(DeviceContext, 0, 0, WindowWidth, OffsetY, BLACKNESS);
     PatBlt(DeviceContext, 0, OffsetY + Buffer->Height, WindowWidth, WindowHeight, BLACKNESS);
     PatBlt(DeviceContext, 0, 0, OffsetX, WindowHeight, BLACKNESS);
-    PatBlt(DeviceContext, 0, 0, WindowWidth, WindowHeight, BLACKNESS);
     PatBlt(DeviceContext, OffsetX + Buffer->Width, 0, WindowWidth, WindowHeight, BLACKNESS);
 
     // NOTE: 1 to 1 pixels render
@@ -569,8 +569,8 @@ Win32GetInputFileLocation(win32_state *State, bool32 InputStream, int SlotIndex,
 internal win32_replay_buffer*
 Win32GetReplayBuffer(win32_state *State, int unsigned Index)
 {
-
-    Assert(Index < ArrayCount(State->ReplayBuffers))
+    Assert(Index > 0);
+    Assert(Index < ArrayCount(State->ReplayBuffers));
     win32_replay_buffer *Result = &State->ReplayBuffers[Index];
     return Result;
 }
@@ -918,8 +918,8 @@ WinMain(HINSTANCE Instance,
     if (RegisterClassA(&WindowClass))
     {
         HWND Window = CreateWindowExA(
-            // WS_EX_TOPMOST | WS_EX_LAYERED,
-            WS_EX_LAYERED,
+            WS_EX_TOPMOST | WS_EX_LAYERED,
+            // WS_EX_LAYERED,
             WindowClass.lpszClassName,
             "Game",
             WS_OVERLAPPEDWINDOW | WS_VISIBLE,
@@ -1378,7 +1378,7 @@ WinMain(HINSTANCE Instance,
 
                         float64 FramePerSecond = 0.f;
                         float64 MegaCyclesPerFrame = (int32)(CyclesElapsed / (1000*1000));
-#if 0                        
+#if 1                        
                         //Display frame speed
                         char Buffer[256];
                         _snprintf_s(Buffer, sizeof(Buffer), 

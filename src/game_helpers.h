@@ -6,14 +6,14 @@
 inline int32
 RoundFloat32ToInt32(float32 FloatValue)
 {
-	int32 Result = (int32)(FloatValue + 0.5f);
+	int32 Result = (int32)roundf(FloatValue);
 	return Result;
 }
 
 inline uint32
 RoundFloat32ToUInt32(float32 FloatValue)
 {
-	uint32 Result = (uint32)(FloatValue + 0.5f);
+	uint32 Result = (uint32)roundf(FloatValue);
 	return Result;
 }
 

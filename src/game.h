@@ -48,49 +48,38 @@ inline game_controller_input *GetController(game_input *Input, int ControllerInd
 	return Result; 
 }
 
-struct canonical_position
+struct memory_area
 {
-#if 1
-	int32 TileMapX;
-	int32 TileMapY;
-
-	int32 TileX;
-	int32 TileY;
-#else 
-	uint32 _TileX;
-	uint32 _TileY;
-#endif
-	// NOTE: Tile relatives position
-	float32 TileRelX;
-	float32 TileRelY;
+	memory_index Size;
+	uint8* Base;
+	memory_index Used;
 };
 
-struct tile_map
+#define PushSize(Area, type) (type *)PushSize_(Area, sizeof(type))
+#define PushArray(Area, Count, type) (type *)PushSize_(Area, (Count)*sizeof(type))
+void *
+PushSize_(memory_area *Area, memory_index Size)
 {
-	uint32 *Tiles;
-};
+	Assert((Area->Used + Size) <= Area->Size);
+
+	void *Result =  Area->Base + Area->Used;
+	Area->Used += Size;
+	return Result;
+}
+
+#include "game_helpers.h"
+#include "game_tile.h"
 
 struct world
 {
-	float32 TileSideInMeters;
-	int32 TileSideInPixels;
-	float32 MetersToPixels;
-
-	int32 TileCountX;
-	int32 TileCountY;
-
-	int32 TileMapCountX;
-	int32 TileMapCountY;
-
-	float32 UpperLeftX;
-	float32 UpperLeftY;
-
-	tile_map *TileMaps;
+	tile_map *TileMap;
 };
 
 struct game_state
 {
-	canonical_position PlayerPos;
+	memory_area WorldArea;
+	world *World;
+	tile_map_position PlayerPos;
 };
 
 #endif
