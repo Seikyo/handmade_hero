@@ -65,13 +65,6 @@ DrawRectangle(game_offscreen_buffer *Buffer,
 	}
 }
 
-// internal void
-// DEBUGLoadBMP(thread_context *Thread, debug_platform_read_entire_file *ReadEntireFile, char *Filename)
-// {
-// 	debug_read_file_result ReadResult = ReadEntireFile(Thread, Filename);
-// 	int Y = 5;
-// }
-
 internal void
 DebugPoint(game_offscreen_buffer *Buffer, int32 X, int32 Y, uint32 Color, int CrossSize)
 {
@@ -109,6 +102,123 @@ InitializeArea(memory_area *Area, memory_index Size, uint8 *Base)
 	Area->Used = 0;
 }
 
+#pragma pack(push, 1)
+struct bitmap_header
+{
+	uint16 FileType;
+	uint32 FileSize;
+	uint16 Reserved1;
+	uint16 Reserved2;
+	uint32 BitmapOffset;
+	uint32 HeaderSize;
+	int32 Width;
+	int32 Height;
+	uint16 Planes;
+	uint16 BitsPerPixel;
+	uint32 Compression;
+	uint32 ImageSize;
+	int32 HRes;
+	int32 VRes;
+	uint32 ColorsUsed;
+	uint32 ColorsImportant;
+	uint32 RMask;
+	uint32 GMask;
+	uint32 BMask;
+	uint32 AMask;
+};
+#pragma pack(pop)
+
+inline uint32
+ShiftBitmapChannel(uint32 Pixel, bitmap_header *Header)
+{
+	uint32 Result = 0;
+	uint32 RChannel = (Pixel & Header->RMask);
+	uint32 GChannel = (Pixel & Header->GMask);
+	uint32 BChannel = (Pixel & Header->BMask);
+	uint32 AChannel = (Pixel & Header->AMask);
+
+	if(Header->RMask == 0xFF000000) Result += RChannel >> 8;
+	if(Header->RMask == 0x00FF0000) Result += RChannel;
+	if(Header->RMask == 0x0000FF00) Result += RChannel << 8;
+	if(Header->RMask == 0x000000FF) Result += RChannel << 16;
+
+	if(Header->GMask == 0xFF000000) Result += GChannel >> 16;
+	if(Header->GMask == 0x00FF0000) Result += GChannel >> 8;
+	if(Header->GMask == 0x0000FF00) Result += GChannel;
+	if(Header->GMask == 0x000000FF) Result += GChannel << 8;
+
+	if(Header->BMask == 0xFF000000) Result += BChannel >> 24;
+	if(Header->BMask == 0x00FF0000) Result += BChannel >> 16;
+	if(Header->BMask == 0x0000FF00) Result += BChannel >> 8;
+	if(Header->BMask == 0x000000FF) Result += BChannel;
+
+	if(Header->AMask == 0xFF000000) Result += AChannel;
+	if(Header->AMask == 0x00FF0000) Result += AChannel << 8;
+	if(Header->AMask == 0x0000FF00) Result += AChannel << 16;
+	if(Header->AMask == 0x000000FF) Result += AChannel << 24;
+
+	int32 Y = 5;
+	
+	return Result;
+}
+
+internal loaded_bitmap
+DEBUGLoadBMP(thread_context *Thread, debug_platform_read_entire_file *ReadEntireFile, char *Filename)
+{
+	loaded_bitmap Result = {};
+	debug_read_file_result ReadResult = ReadEntireFile(Thread, Filename);
+	// NOTE: 0xAARRGGBB in memory
+	if(ReadResult.ContentsSize != 0)
+	{
+		bitmap_header *Header = (bitmap_header *)ReadResult.Contents;
+		uint32 *Pixels = (uint32 *)((uint8 *)ReadResult.Contents + Header->BitmapOffset);
+		Result.Pixels = Pixels;
+		Result.Width = Header->Width;
+		Result.Height = Header->Height;
+
+		uint32 *SourceDest = Pixels;
+		for(int32 Y = 0; Y < Header->Height; Y++)
+		{
+			for(int32 X = 0; X < Header->Width; X++)
+			{
+				*SourceDest = ShiftBitmapChannel(*SourceDest, Header);
+				++SourceDest;
+			}
+		}
+	}
+	return Result;
+}
+
+internal void
+DrawBitmap(game_offscreen_buffer *ScreenBuffer, loaded_bitmap *Bitmap, float32 FloatX, float32 FloatY)
+{
+	int32 MinX = RoundFloat32ToInt32(FloatX);
+	int32 MinY = RoundFloat32ToInt32(FloatY);
+	int32 MaxX = RoundFloat32ToInt32(FloatX + Bitmap->Width);
+	int32 MaxY = RoundFloat32ToInt32(FloatY + Bitmap->Height);
+
+	if(MinX < 0) { MinX = 0; }
+	if(MinY < 0) { MinY = 0; }
+	if(MaxX > ScreenBuffer->Width) { MaxX = ScreenBuffer->Width; }
+	if(MaxY > ScreenBuffer->Height) { MaxY = ScreenBuffer->Height; }
+
+	uint32 *SourceRow = Bitmap->Pixels + Bitmap->Width * (Bitmap->Height -1);
+	uint8 *DestRow = (uint8 *)ScreenBuffer->Memory + 
+					 MinY * ScreenBuffer->Pitch +
+					 MinX * ScreenBuffer->BytesPerPixel;
+	for(int32 Y = MinY; Y < MaxY; ++Y)
+	{
+		uint32 *Dest = (uint32 *)DestRow;
+		uint32 *Source = SourceRow;
+		for(int32 X = MinX; X < MaxX; ++X)
+		{
+			*Dest++ = *Source++;
+		}
+		DestRow += ScreenBuffer->Pitch;
+		SourceRow -= Bitmap->Width;
+	}
+}
+
 extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender) 
 {
 	Assert((&Input->Controllers[0].Start - &Input->Controllers[0].Buttons[0]) == 
@@ -121,7 +231,14 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 	game_state *GameState = (game_state *)Memory->PermanentStorage;
 	if(!Memory->IsInitialized)
 	{
-		// DEBUGLoadBMP(Thread, Memory->DEBUGPlatformReadEntireFile, "test/test_background.bmp");
+		GameState->BackDrop = DEBUGLoadBMP(Thread, Memory->DEBUGPlatformReadEntireFile, 
+										   "test/test_background.bmp");
+		GameState->HeroHead = DEBUGLoadBMP(Thread, Memory->DEBUGPlatformReadEntireFile,
+										   "test/test_hero_front_head.bmp");
+		GameState->HeroCape = DEBUGLoadBMP(Thread, Memory->DEBUGPlatformReadEntireFile,
+										   "test/test_hero_front_cape.bmp");
+		GameState->HeroTorso = DEBUGLoadBMP(Thread, Memory->DEBUGPlatformReadEntireFile,
+										   "test/test_hero_front_torso.bmp");
 		InitializeArea(&GameState->WorldArea,
 					   Memory->PermanentStorageSize - sizeof(game_state),
 					   (uint8 *)Memory->PermanentStorage + sizeof(game_state));
@@ -356,10 +473,7 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 		}
 	}
 
-	DrawRectangle(ScreenBuffer,
-				  0.f, 0.f, 
-				  (float32)ScreenBuffer->Width, (float32)ScreenBuffer->Height,
-				  1.0f, 0.0f, 0.1f);
+	DrawBitmap(ScreenBuffer, &GameState->BackDrop, 0, 0);
 
 	float32 ScreenCenterX = 0.5f * (float32)ScreenBuffer->Width;
 	float32 ScreenCenterY = 0.5f * (float32)ScreenBuffer->Height;
@@ -376,7 +490,7 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 			uint32 Row 	  = RelRow + GameState->PlayerPos.AbsTileY;
 			uint32 TileID = GetTileValue(TileMap, Column, Row, GameState->PlayerPos.AbsTileZ);
 
-			if(TileID > 0)
+			if(TileID > 1)
 			{
 				float32 Gray  = 0.5f;
 				if(TileID == 2)
@@ -410,26 +524,27 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 	float32 PlayerLeft = ScreenCenterX - MetersToPixels *  0.5f * PlayerWidth;
 	float32 PlayerTop  = ScreenCenterY - MetersToPixels *  PlayerHeight;
 
-	DrawRectangle(ScreenBuffer,
-				  PlayerLeft, PlayerTop, 
-				  PlayerLeft + MetersToPixels * PlayerWidth, 
-				  PlayerTop + MetersToPixels * PlayerHeight,
-				  PlayerR, PlayerG, PlayerB);
+	// DrawRectangle(ScreenBuffer,
+	// 			  PlayerLeft, PlayerTop, 
+	// 			  PlayerLeft + MetersToPixels * PlayerWidth, 
+	// 			  PlayerTop + MetersToPixels * PlayerHeight,
+	// 			  PlayerR, PlayerG, PlayerB);
+	DrawBitmap(ScreenBuffer, &GameState->HeroHead, PlayerLeft, PlayerTop);
 
-	// DebugPoint(ScreenBuffer, 
-	// 		   FloorFloat32ToInt32(PlayerLeft + MetersToPixels * 0.5f * PlayerWidth),
-	// 		   FloorFloat32ToInt32(PlayerTop + MetersToPixels * PlayerHeight),
-	// 		   0xFFFF0000, 3);
+	DebugPoint(ScreenBuffer, 
+			   FloorFloat32ToInt32(PlayerLeft + MetersToPixels * 0.5f * PlayerWidth),
+			   FloorFloat32ToInt32(PlayerTop + MetersToPixels * PlayerHeight),
+			   0xFFFF0000, 3);
 
-	// DebugPoint(ScreenBuffer, 
-	// 		   FloorFloat32ToInt32(PlayerLeft),
-	// 		   FloorFloat32ToInt32(PlayerTop + MetersToPixels * PlayerHeight),
-	// 		   0xFF00FF00, 3);
+	DebugPoint(ScreenBuffer, 
+			   FloorFloat32ToInt32(PlayerLeft),
+			   FloorFloat32ToInt32(PlayerTop + MetersToPixels * PlayerHeight),
+			   0xFF00FF00, 3);
 
-	// DebugPoint(ScreenBuffer, 
-	// 		   FloorFloat32ToInt32(PlayerLeft + MetersToPixels * PlayerWidth),
-	// 		   FloorFloat32ToInt32(PlayerTop + MetersToPixels * PlayerHeight),
-	// 		   0xFF0000FF, 3);
+	DebugPoint(ScreenBuffer, 
+			   FloorFloat32ToInt32(PlayerLeft + MetersToPixels * PlayerWidth),
+			   FloorFloat32ToInt32(PlayerTop + MetersToPixels * PlayerHeight),
+			   0xFF0000FF, 3);
 }
 
 extern "C" GAME_GET_SOUND_SAMPLES(GameGetSoundSamples)
