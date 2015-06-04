@@ -16,11 +16,16 @@ if "%time:~0,1%" == " " (
 	set datetime=%date:~-4,4%.%date:~-10,2%.%date:~-7,2%_%time:~0,2%.%time:~3,2%.%time:~6,2%
 )
 
+echo "WAITING FOR PDB" > lock.tmp
+
 REM 32-bit build
 REM cl %C_FLAGS% ".\build\win32_game.cpp" /link %L_FLAGS% -subsystem:windows,5.01 %LIBS%
 
 REM 64-bit build
+
 cl %C_FLAGS% "..\src\game.cpp" -Fmgame.map -LD /link -incremental:no -PDB:game_%datetime%.pdb /DLL -EXPORT:GameGetSoundSamples -EXPORT:GameUpdateAndRender
 cl %C_FLAGS% "..\src\win32_game.cpp" -Fmwin32_game.map /link %L_FLAGS% -subsystem:windows,5.02 %LIBS%
+
+del lock.tmp
 
 popd

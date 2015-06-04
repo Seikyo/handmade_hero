@@ -1,5 +1,5 @@
-#ifndef GAME_HELPERS_H
-#define GAME_HELPERS_H
+#ifndef GAME_INTRINSICS_H
+#define GAME_INTRINSICS_H
 
 #include "math.h"
 
@@ -51,5 +51,34 @@ ATan2(float32 Y, float32 X)
 	float32 Result = atan2f(Y, X);
 	return Result;
 }
+
+struct bit_scan_result
+{
+	bool32 Found;
+	uint32 Index;
+};
+
+inline bit_scan_result
+FindLeastSignificantSetBit(uint32 Value)
+{
+	bit_scan_result Result = {};
+
+#if COMPILER_MSVC
+	Result.Found = _BitScanForward((unsigned long *)&Result.Index, Value);
+#else
+	for(uint32 Test = 0; Test < 32; ++Test)
+	{
+		if(Value & (1 << Test))
+		{
+			Result.Index = Test;
+			Result.Found = true;
+			break;
+		}
+	}
+#endif
+
+	return Result;
+}
+
 
 #endif

@@ -1,4 +1,4 @@
-#include "game.h"
+#include "game_platform.h"
 
 #include <windows.h>
 #include <xinput.h>
@@ -13,6 +13,7 @@ global_variable bool32 GlobalPause;
 global_variable win32_offscreen_buffer GlobalBackBuffer;
 global_variable LPDIRECTSOUNDBUFFER GlobalSecondaryBuffer;
 global_variable int64 GlobalPerformanceCounterFrequency;
+global_variable bool32 DEBUGGlobalShowCursor;
 
 global_variable int WINDOW_WIDTH = 960;
 global_variable int WINDOW_HEIGHT = 540;
@@ -171,22 +172,26 @@ Win32GetLastWriteTime(char *Filename)
 }
 
 internal win32_game_code
-Win32LoadGameCode(char *SourceDLLName, char *TempDLLName)
+Win32LoadGameCode(char *SourceDLLName, char *TempDLLName, char *LockFileName)
 {
     win32_game_code Result = {};
 
-    Result.DLLLastWriteTime = Win32GetLastWriteTime(SourceDLLName);
-    CopyFile(SourceDLLName, TempDLLName, FALSE);
-    Result.GameCodeDLL = LoadLibraryA(TempDLLName);
-
-    if(Result.GameCodeDLL)
+    WIN32_FILE_ATTRIBUTE_DATA Ignored;
+    if(!GetFileAttributesEx(LockFileName, GetFileExInfoStandard, &Ignored))
     {
-        Result.UpdateAndRender = (game_update_and_render *)GetProcAddress
-            (Result.GameCodeDLL,"GameUpdateAndRender");
-        Result.GetSoundSamples = (game_get_sound_samples *)GetProcAddress
-            (Result.GameCodeDLL,"GameGetSoundSamples");
+        Result.DLLLastWriteTime = Win32GetLastWriteTime(SourceDLLName);
+        CopyFile(SourceDLLName, TempDLLName, FALSE);
+        Result.GameCodeDLL = LoadLibraryA(TempDLLName);
 
-        Result.IsValid = (Result.UpdateAndRender && Result.GetSoundSamples);
+        if(Result.GameCodeDLL)
+        {
+            Result.UpdateAndRender = (game_update_and_render *)GetProcAddress
+                (Result.GameCodeDLL,"GameUpdateAndRender");
+            Result.GetSoundSamples = (game_get_sound_samples *)GetProcAddress
+                (Result.GameCodeDLL,"GameGetSoundSamples");
+
+            Result.IsValid = (Result.UpdateAndRender && Result.GetSoundSamples);
+        }
     }
 
     if(!Result.IsValid)
@@ -405,6 +410,18 @@ Win32MainWindowCallback(HWND Window,
     {
         case WM_SIZE:
         {
+        } break;
+
+        case WM_SETCURSOR:
+        {
+            if(DEBUGGlobalShowCursor)
+            {
+                Result = DefWindowProc(Window, Message, WParam, LParam);
+            }
+            else
+            {
+                SetCursor(0);
+            }
         } break;
 
         case WM_CLOSE:
@@ -899,6 +916,10 @@ WinMain(HINSTANCE Instance,
     Win32BuildEXEPathFilename(&Win32State, "game_temp.dll",
                               sizeof(TempGameCodeDLLFullPath), TempGameCodeDLLFullPath);
 
+    char GameCodeLockFullPath[WIN32_STATE_FILE_NAME_COUNT];
+    Win32BuildEXEPathFilename(&Win32State, "lock.tmp",
+                              sizeof(GameCodeLockFullPath), GameCodeLockFullPath);
+
 
     // Set Windows scheduler to 1 ms
     UINT DesiredSchedulerMS = 1;
@@ -907,12 +928,16 @@ WinMain(HINSTANCE Instance,
     Win32LoadXInput();
 
     WNDCLASSA WindowClass = {};
+#if INTERNAL
+    DEBUGGlobalShowCursor = true;
+#endif
 
     Win32ResizeDIBSection(&GlobalBackBuffer, WINDOW_WIDTH, WINDOW_HEIGHT);
 
     WindowClass.style = CS_HREDRAW|CS_VREDRAW;
     WindowClass.lpfnWndProc = Win32MainWindowCallback;
     WindowClass.hInstance = Instance;
+    WindowClass.hCursor = LoadCursor(0, IDC_ARROW);
     WindowClass.lpszClassName = "GameWindowClass";
 
     if (RegisterClassA(&WindowClass))
@@ -1034,7 +1059,9 @@ WinMain(HINSTANCE Instance,
                 DWORD AudioLatencySeconds = 0;
                 bool32 SoundIsValid = false;
 
-                win32_game_code Game = Win32LoadGameCode(SourceGameCodeDLLFullPath, TempGameCodeDLLFullPath);
+                win32_game_code Game = Win32LoadGameCode(SourceGameCodeDLLFullPath, 
+                                                         TempGameCodeDLLFullPath, 
+                                                         GameCodeLockFullPath);
                 uint32 LoadCounter = 120;
 
                 GlobalRunning = true;
@@ -1047,7 +1074,9 @@ WinMain(HINSTANCE Instance,
                     if(CompareFileTime(&NewDLLWriteTime, &Game.DLLLastWriteTime) != 0)
                     {
                         Win32UnloadGameCode(&Game);
-                        Game = Win32LoadGameCode(SourceGameCodeDLLFullPath, TempGameCodeDLLFullPath);
+                        Game = Win32LoadGameCode(SourceGameCodeDLLFullPath, 
+                                                 TempGameCodeDLLFullPath, 
+                                                 GameCodeLockFullPath);
                         LoadCounter = 0;
                     }
 

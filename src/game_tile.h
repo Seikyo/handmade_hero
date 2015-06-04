@@ -1,6 +1,13 @@
 #ifndef GAME_TILE_H
 #define GAME_TILE_H
 
+struct tile_map_difference
+{
+	float32 dX;
+	float32 dY;
+	float32 dZ;
+};
+
 struct tile_map_position
 {
 	// NOTE: Fixed point tile locations

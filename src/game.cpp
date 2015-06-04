@@ -68,26 +68,31 @@ DrawRectangle(game_offscreen_buffer *Buffer,
 internal void
 DebugPoint(game_offscreen_buffer *Buffer, int32 X, int32 Y, uint32 Color, int CrossSize)
 {
+	if(X < 0 || Y < 0 || X > Buffer->Width || Y > Buffer->Height)
+	{
+		return;
+	}
+
 	uint32 *Pixel = (uint32 *)((uint8 *)Buffer->Memory + 
-					Y * Buffer->Pitch + 
-					X * Buffer->BytesPerPixel);
+								Y * Buffer->Pitch + 
+								X * Buffer->BytesPerPixel);
 	
 	*Pixel = Color;
 	for(int dC = 1; dC < CrossSize; dC++)
 	{
-		if(X >= dC)
+		if(X > dC)
 		{
 			*(Pixel - dC) = Color;
 		}
-		if(X <= Buffer->Width - dC) 
+		if(X < Buffer->Width - dC) 
 		{
 			*(Pixel + dC) = Color;
 		}
-		if(Y >= dC)
+		if(Y > dC)
 		{
  			*(uint32 *)((uint8 *)Pixel - dC * Buffer->Pitch ) = Color;
  		}
- 		if(Y <= Buffer->Height - dC)
+ 		if(Y < Buffer->Height - dC)
  		{
  			*(uint32 *)((uint8 *)Pixel + dC * Buffer->Pitch ) = Color;
  		}
@@ -128,40 +133,6 @@ struct bitmap_header
 };
 #pragma pack(pop)
 
-inline uint32
-ShiftBitmapChannel(uint32 Pixel, bitmap_header *Header)
-{
-	uint32 Result = 0;
-	uint32 RChannel = (Pixel & Header->RMask);
-	uint32 GChannel = (Pixel & Header->GMask);
-	uint32 BChannel = (Pixel & Header->BMask);
-	uint32 AChannel = (Pixel & Header->AMask);
-
-	if(Header->RMask == 0xFF000000) Result += RChannel >> 8;
-	if(Header->RMask == 0x00FF0000) Result += RChannel;
-	if(Header->RMask == 0x0000FF00) Result += RChannel << 8;
-	if(Header->RMask == 0x000000FF) Result += RChannel << 16;
-
-	if(Header->GMask == 0xFF000000) Result += GChannel >> 16;
-	if(Header->GMask == 0x00FF0000) Result += GChannel >> 8;
-	if(Header->GMask == 0x0000FF00) Result += GChannel;
-	if(Header->GMask == 0x000000FF) Result += GChannel << 8;
-
-	if(Header->BMask == 0xFF000000) Result += BChannel >> 24;
-	if(Header->BMask == 0x00FF0000) Result += BChannel >> 16;
-	if(Header->BMask == 0x0000FF00) Result += BChannel >> 8;
-	if(Header->BMask == 0x000000FF) Result += BChannel;
-
-	if(Header->AMask == 0xFF000000) Result += AChannel;
-	if(Header->AMask == 0x00FF0000) Result += AChannel << 8;
-	if(Header->AMask == 0x0000FF00) Result += AChannel << 16;
-	if(Header->AMask == 0x000000FF) Result += AChannel << 24;
-
-	int32 Y = 5;
-	
-	return Result;
-}
-
 internal loaded_bitmap
 DEBUGLoadBMP(thread_context *Thread, debug_platform_read_entire_file *ReadEntireFile, char *Filename)
 {
@@ -176,12 +147,26 @@ DEBUGLoadBMP(thread_context *Thread, debug_platform_read_entire_file *ReadEntire
 		Result.Width = Header->Width;
 		Result.Height = Header->Height;
 
+		bit_scan_result RShift = FindLeastSignificantSetBit(Header->RMask);
+		bit_scan_result GShift = FindLeastSignificantSetBit(Header->GMask);
+		bit_scan_result BShift = FindLeastSignificantSetBit(Header->BMask);
+		bit_scan_result AShift = FindLeastSignificantSetBit(Header->AMask);
+
+		Assert(RShift.Found);
+		Assert(GShift.Found);
+		Assert(BShift.Found);
+		Assert(AShift.Found);
+
 		uint32 *SourceDest = Pixels;
 		for(int32 Y = 0; Y < Header->Height; Y++)
 		{
 			for(int32 X = 0; X < Header->Width; X++)
 			{
-				*SourceDest = ShiftBitmapChannel(*SourceDest, Header);
+				uint32 C = *SourceDest;
+				*SourceDest = ( (((C >> AShift.Index) & 0xFF) << 24) |
+								(((C >> RShift.Index) & 0xFF) << 16) |
+								(((C >> GShift.Index) & 0xFF) <<  8) |
+								(((C >> BShift.Index) & 0xFF) <<  0) );
 				++SourceDest;
 			}
 		}
@@ -190,19 +175,41 @@ DEBUGLoadBMP(thread_context *Thread, debug_platform_read_entire_file *ReadEntire
 }
 
 internal void
-DrawBitmap(game_offscreen_buffer *ScreenBuffer, loaded_bitmap *Bitmap, float32 FloatX, float32 FloatY)
+DrawBitmap(game_offscreen_buffer *ScreenBuffer, 
+	loaded_bitmap *Bitmap, float32 FloatX, float32 FloatY,
+	int32 AlignX = 0, int32 AlignY = 0)
 {
+	FloatX -= (float32)AlignX;
+	FloatY -= (float32)AlignY;
+
 	int32 MinX = RoundFloat32ToInt32(FloatX);
 	int32 MinY = RoundFloat32ToInt32(FloatY);
 	int32 MaxX = RoundFloat32ToInt32(FloatX + Bitmap->Width);
 	int32 MaxY = RoundFloat32ToInt32(FloatY + Bitmap->Height);
 
-	if(MinX < 0) { MinX = 0; }
-	if(MinY < 0) { MinY = 0; }
-	if(MaxX > ScreenBuffer->Width) { MaxX = ScreenBuffer->Width; }
-	if(MaxY > ScreenBuffer->Height) { MaxY = ScreenBuffer->Height; }
+	int32 SourceOffsetX = 0;
+	int32 SourceOffsetY = 0;
+	if(MinX < 0) 
+	{ 
+		SourceOffsetX = -MinX;
+		MinX = 0;
+	}
+	if(MinY < 0) 
+	{ 
+		SourceOffsetY = -MinY;
+		MinY = 0; 
+	}
+	if(MaxX > ScreenBuffer->Width) 
+	{ 
+		MaxX = ScreenBuffer->Width;
+	}
+	if(MaxY > ScreenBuffer->Height) 
+	{ 
+		MaxY = ScreenBuffer->Height;
+	}
 
 	uint32 *SourceRow = Bitmap->Pixels + Bitmap->Width * (Bitmap->Height -1);
+	SourceRow += -Bitmap->Width * SourceOffsetY + SourceOffsetX;
 	uint8 *DestRow = (uint8 *)ScreenBuffer->Memory + 
 					 MinY * ScreenBuffer->Pitch +
 					 MinX * ScreenBuffer->BytesPerPixel;
@@ -212,7 +219,26 @@ DrawBitmap(game_offscreen_buffer *ScreenBuffer, loaded_bitmap *Bitmap, float32 F
 		uint32 *Source = SourceRow;
 		for(int32 X = MinX; X < MaxX; ++X)
 		{
-			*Dest++ = *Source++;
+			// NOTE: Alpha Blending
+			float32 A 	 = (float32)((*Source >> 24) & 0xFF) / 255.f;
+			float32 SrcR = (float32)((*Source >> 16) & 0xFF);
+			float32 SrcG = (float32)((*Source >>  8) & 0xFF);
+			float32 SrcB = (float32)((*Source >>  0) & 0xFF);
+
+			float32 DestR = (float32)((*Dest >> 16) & 0xFF);
+			float32 DestG = (float32)((*Dest >>  8) & 0xFF);
+			float32 DestB = (float32)((*Dest >>  0) & 0xFF);
+
+			float32 R = (1.f - A) * DestR + A * SrcR;
+			float32 G = (1.f - A) * DestG + A * SrcG;
+			float32 B = (1.f - A) * DestB + A * SrcB;
+
+			*Dest = ( ((uint32)(R + 0.5f) << 16) |
+					  ((uint32)(G + 0.5f) <<  8) |
+					  ((uint32)(B + 0.5f) <<  0) );
+
+			++Dest;
+			++Source;
 		}
 		DestRow += ScreenBuffer->Pitch;
 		SourceRow -= Bitmap->Width;
@@ -233,12 +259,37 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 	{
 		GameState->BackDrop = DEBUGLoadBMP(Thread, Memory->DEBUGPlatformReadEntireFile, 
 										   "test/test_background.bmp");
-		GameState->HeroHead = DEBUGLoadBMP(Thread, Memory->DEBUGPlatformReadEntireFile,
-										   "test/test_hero_front_head.bmp");
-		GameState->HeroCape = DEBUGLoadBMP(Thread, Memory->DEBUGPlatformReadEntireFile,
-										   "test/test_hero_front_cape.bmp");
-		GameState->HeroTorso = DEBUGLoadBMP(Thread, Memory->DEBUGPlatformReadEntireFile,
-										   "test/test_hero_front_torso.bmp");
+
+		hero_bitmaps *Bitmap;
+
+		Bitmap = &GameState->HeroBitmaps[0];
+		Bitmap->Head = DEBUGLoadBMP(Thread, Memory->DEBUGPlatformReadEntireFile, "test/test_hero_right_head.bmp");
+		Bitmap->Cape = DEBUGLoadBMP(Thread, Memory->DEBUGPlatformReadEntireFile, "test/test_hero_right_cape.bmp");
+		Bitmap->Torso = DEBUGLoadBMP(Thread, Memory->DEBUGPlatformReadEntireFile, "test/test_hero_right_torso.bmp");
+		Bitmap->AlignX = 72;
+		Bitmap->AlignY = 182;
+		++Bitmap;
+
+		Bitmap->Head = DEBUGLoadBMP(Thread, Memory->DEBUGPlatformReadEntireFile, "test/test_hero_back_head.bmp");
+		Bitmap->Cape = DEBUGLoadBMP(Thread, Memory->DEBUGPlatformReadEntireFile, "test/test_hero_back_cape.bmp");
+		Bitmap->Torso = DEBUGLoadBMP(Thread, Memory->DEBUGPlatformReadEntireFile, "test/test_hero_back_torso.bmp");
+		Bitmap->AlignX = 72;
+		Bitmap->AlignY = 182;
+		++Bitmap;
+
+		Bitmap->Head = DEBUGLoadBMP(Thread, Memory->DEBUGPlatformReadEntireFile, "test/test_hero_left_head.bmp");
+		Bitmap->Cape = DEBUGLoadBMP(Thread, Memory->DEBUGPlatformReadEntireFile, "test/test_hero_left_cape.bmp");
+		Bitmap->Torso = DEBUGLoadBMP(Thread, Memory->DEBUGPlatformReadEntireFile, "test/test_hero_left_torso.bmp");
+		Bitmap->AlignX = 72;
+		Bitmap->AlignY = 182;
+		++Bitmap;
+
+		Bitmap->Head = DEBUGLoadBMP(Thread, Memory->DEBUGPlatformReadEntireFile, "test/test_hero_front_head.bmp");
+		Bitmap->Cape = DEBUGLoadBMP(Thread, Memory->DEBUGPlatformReadEntireFile, "test/test_hero_front_cape.bmp");
+		Bitmap->Torso = DEBUGLoadBMP(Thread, Memory->DEBUGPlatformReadEntireFile, "test/test_hero_front_torso.bmp");
+		Bitmap->AlignX = 72;
+		Bitmap->AlignY = 182;
+
 		InitializeArea(&GameState->WorldArea,
 					   Memory->PermanentStorageSize - sizeof(game_state),
 					   (uint8 *)Memory->PermanentStorage + sizeof(game_state));
@@ -272,10 +323,13 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 		uint32 ScreenY = 0;
 		uint32 AbsTileZ = 0;
 
-		GameState->PlayerPos.AbsTileX = 1 + 3 * TilesPerWidth;
-		GameState->PlayerPos.AbsTileY = 3 + TilesPerHeight;
-		GameState->PlayerPos.OffsetX = 0.5f;
-		GameState->PlayerPos.OffsetY = 0.5f;
+		GameState->CameraPos.AbsTileX = 17/2;
+		GameState->CameraPos.AbsTileY =  9/2;
+
+		GameState->PlayerPos.AbsTileX = 1;
+		GameState->PlayerPos.AbsTileY = 3;
+		GameState->PlayerPos.OffsetX = 5.f;
+		GameState->PlayerPos.OffsetY = 5.f;
 
 		bool32 DoorLeft = false;
 		bool32 DoorRight = false;
@@ -427,10 +481,26 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 			float32 dPlayerX = 0.0f;
 			float32 dPlayerY = 0.0f;
 
-			if(Controller->MoveUp.EndedDown) 	{ dPlayerY =  1.f; }
-			if(Controller->MoveDown.EndedDown) 	{ dPlayerY = -1.f; }
-			if(Controller->MoveRight.EndedDown) { dPlayerX =  1.f; }
-			if(Controller->MoveLeft.EndedDown) 	{ dPlayerX = -1.f; }
+			if(Controller->MoveUp.EndedDown) 	
+			{ 
+				GameState->HeroFacingDirection = 1;
+				dPlayerY =  1.f;
+			}
+			if(Controller->MoveDown.EndedDown) 	
+			{ 
+				GameState->HeroFacingDirection = 3;
+				dPlayerY = -1.f; 
+			}
+			if(Controller->MoveRight.EndedDown) 
+			{ 
+				GameState->HeroFacingDirection = 0;
+				dPlayerX =  1.f; 
+			}
+			if(Controller->MoveLeft.EndedDown) 	
+			{ 
+				GameState->HeroFacingDirection = 2;
+				dPlayerX = -1.f; 
+			}
 
 			float32 PlayerSpeed = 3.0f;
 
@@ -470,6 +540,27 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 				}
 				GameState->PlayerPos = NewPlayerPos;
 			}
+			GameState->CameraPos.AbsTileZ = GameState->PlayerPos.AbsTileZ;
+
+			tile_map_difference Diff = Substract(TileMap, &GameState->PlayerPos, &GameState->CameraPos);
+
+			if(Diff.dX > (9.0f * TileMap->TileSideInMeters))
+			{
+				GameState->CameraPos.AbsTileX += 17;
+			}
+			else if(Diff.dX < -(9.0f * TileMap->TileSideInMeters))
+			{
+				GameState->CameraPos.AbsTileX -= 17;
+			}
+
+			if(Diff.dY > (5.0f * TileMap->TileSideInMeters))
+			{
+				GameState->CameraPos.AbsTileY += 9;
+			}
+			else if(Diff.dY < -(5.0f * TileMap->TileSideInMeters))
+			{
+				GameState->CameraPos.AbsTileY -= 9;
+			}
 		}
 	}
 
@@ -486,9 +577,9 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 			RelColumn < 20;
 			 ++RelColumn)
 		{
-			uint32 Column = RelColumn + GameState->PlayerPos.AbsTileX;
-			uint32 Row 	  = RelRow + GameState->PlayerPos.AbsTileY;
-			uint32 TileID = GetTileValue(TileMap, Column, Row, GameState->PlayerPos.AbsTileZ);
+			uint32 Column = RelColumn + GameState->CameraPos.AbsTileX;
+			uint32 Row 	  = RelRow + GameState->CameraPos.AbsTileY;
+			uint32 TileID = GetTileValue(TileMap, Column, Row, GameState->CameraPos.AbsTileZ);
 
 			if(TileID > 1)
 			{
@@ -501,14 +592,14 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 				{
 					Gray = 0.25f;
 				}
-				if( (Column == GameState->PlayerPos.AbsTileX) && 
-					(Row == GameState->PlayerPos.AbsTileY) )
+				if( (Column == GameState->CameraPos.AbsTileX) && 
+					(Row == GameState->CameraPos.AbsTileY) )
 				{
 					Gray = 0.f;
 				}
 
-				float32 CenX = ScreenCenterX - MetersToPixels * GameState->PlayerPos.OffsetX + ((float32)RelColumn) * TileSideInPixels;
-				float32 CenY = ScreenCenterY + MetersToPixels * GameState->PlayerPos.OffsetY - ((float32)RelRow) * TileSideInPixels;
+				float32 CenX = ScreenCenterX - MetersToPixels * GameState->CameraPos.OffsetX + ((float32)RelColumn) * TileSideInPixels;
+				float32 CenY = ScreenCenterY + MetersToPixels * GameState->CameraPos.OffsetY - ((float32)RelRow) * TileSideInPixels;
 				float32 MinX = CenX - 0.5f * TileSideInPixels;
 				float32 MinY = CenY - 0.5f * TileSideInPixels;
 				float32 MaxX = CenX + 0.5f * TileSideInPixels;
@@ -517,19 +608,27 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 			}
 		}
 	}
+	
+	tile_map_difference Diff = Substract(TileMap, &GameState->PlayerPos, &GameState->CameraPos);
 
 	float32 PlayerR = 1.0f;
 	float32 PlayerG = 1.0f;
 	float32 PlayerB = 0.0f; 
-	float32 PlayerLeft = ScreenCenterX - MetersToPixels *  0.5f * PlayerWidth;
-	float32 PlayerTop  = ScreenCenterY - MetersToPixels *  PlayerHeight;
+	float32 PlayerGroundPointX = ScreenCenterX + MetersToPixels * Diff.dX;
+	float32 PlayerGroundPointY = ScreenCenterY - MetersToPixels * Diff.dY;
+	float32 PlayerLeft = PlayerGroundPointX - MetersToPixels *  0.5f * PlayerWidth;
+	float32 PlayerTop  = PlayerGroundPointY - MetersToPixels *  PlayerHeight;
 
-	// DrawRectangle(ScreenBuffer,
-	// 			  PlayerLeft, PlayerTop, 
-	// 			  PlayerLeft + MetersToPixels * PlayerWidth, 
-	// 			  PlayerTop + MetersToPixels * PlayerHeight,
-	// 			  PlayerR, PlayerG, PlayerB);
-	DrawBitmap(ScreenBuffer, &GameState->HeroHead, PlayerLeft, PlayerTop);
+	DrawRectangle(ScreenBuffer,
+				  PlayerLeft, PlayerTop, 
+				  PlayerLeft + MetersToPixels * PlayerWidth, 
+				  PlayerTop + MetersToPixels * PlayerHeight,
+				  PlayerR, PlayerG, PlayerB);
+
+	hero_bitmaps *HeroBitmap = &GameState->HeroBitmaps[GameState->HeroFacingDirection];
+	DrawBitmap(ScreenBuffer, &HeroBitmap->Torso, PlayerGroundPointX, PlayerGroundPointY, HeroBitmap->AlignX, HeroBitmap->AlignY);
+	DrawBitmap(ScreenBuffer, &HeroBitmap->Cape,  PlayerGroundPointX, PlayerGroundPointY, HeroBitmap->AlignX, HeroBitmap->AlignY);
+	DrawBitmap(ScreenBuffer, &HeroBitmap->Head,  PlayerGroundPointX, PlayerGroundPointY, HeroBitmap->AlignX, HeroBitmap->AlignY);
 
 	DebugPoint(ScreenBuffer, 
 			   FloorFloat32ToInt32(PlayerLeft + MetersToPixels * 0.5f * PlayerWidth),
