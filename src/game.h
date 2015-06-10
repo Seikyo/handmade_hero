@@ -33,6 +33,7 @@ PushSize_(memory_area *Area, memory_index Size)
 	return Result;
 }
 
+#include "game_math.h"
 #include "game_intrinsics.h"
 #include "game_tile.h"
 
