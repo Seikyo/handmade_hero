@@ -780,11 +780,11 @@ Win32ProcessPendingMessages(win32_state *State, game_controller_input *KeyboardC
                     }
                     else if(VKCode == VK_ESCAPE)
                     {
-                        Win32ProcessKeyboardMessage(&KeyboardController->Start, IsDown);
+                        Win32ProcessKeyboardMessage(&KeyboardController->Back, IsDown);
                     }
                     else if(VKCode == VK_SPACE)
                     {
-                        Win32ProcessKeyboardMessage(&KeyboardController->Back, IsDown);
+                        Win32ProcessKeyboardMessage(&KeyboardController->Start, IsDown);
                     }
 #if INTERNAL
                     else if(VKCode == 'P')
@@ -1429,7 +1429,7 @@ WinMain(HINSTANCE Instance,
                         win32_window_dimension Dimension = Win32GetWindowDimension(Window);
 #if 0
                         // TODO: Wrong for the first time for DebugTimeMarkerIndex - 1
-                         Win32DebugSyncDisplay(&GlobalBackBuffer, ArrayCount(DebugTimeMarkers), DebugTimeMarkers,
+                        Win32DebugSyncDisplay(&GlobalBackBuffer, ArrayCount(DebugTimeMarkers), DebugTimeMarkers,
                                                DebugTimeMarkerIndex - 1, &SoundOutput, TargetSecondsPerFrame);
 #endif
                         HDC DeviceContext = GetDC(Window);

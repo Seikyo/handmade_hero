@@ -3,6 +3,14 @@
 
 #include "math.h"
 
+inline float32
+AbsoluteValue(float32 FloatValue)
+{
+	float32 Result = fabs(FloatValue);
+
+	return Result;
+}
+
 inline int32
 RoundFloat32ToInt32(float32 FloatValue)
 {

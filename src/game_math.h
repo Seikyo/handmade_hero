@@ -1,13 +1,14 @@
 #ifndef GAME_MATH_H
 #define GAME_MATH_H
 
-struct v2
+union v2
 {
-	float32 X, Y;
-	float32 &operator[](int Index) { return( (&X)[Index] ); }
-
-	inline v2 &operator*=(float32 A);
-	inline v2 &operator+=(v2 A);
+	struct
+	{
+		float32 X;
+		float32 Y;
+	};
+	float32 E[2];
 };
 
 inline v2
@@ -19,6 +20,25 @@ V2(float32 X, float32 Y)
 	Result.Y = Y;
 
 	return Result;
+}
+
+inline v2
+operator*(float32 A, v2 B)
+{
+	v2 Result;
+
+	Result.X = A * B.X;
+	Result.Y = A * B.Y;
+
+	return Result;
+}
+
+inline v2 &
+operator*=(v2 &A, float32 B)
+{
+	A = B * A;
+
+	return A;
 }
 
 inline v2
@@ -43,14 +63,13 @@ operator+(v2 A, v2 B)
 	return Result;
 }
 
-inline v2 &v2::
-operator+=(v2 A)
+inline v2 &
+operator+=(v2 &A, v2 B)
 {
-	*this = *this + A;
+	A = A + B;
 
-	return *this;
+	return A;
 }
-
 
 inline v2
 operator-(v2 A, v2 B)
@@ -63,23 +82,28 @@ operator-(v2 A, v2 B)
 	return Result;
 }
 
-inline v2
-operator*(float32 A, v2 B)
+inline float32
+Square(float32 A)
 {
-	v2 Result;
-
-	Result.X = A*B.X;
-	Result.Y = A*B.Y;
+	float32 Result = A * A;
 
 	return Result;
 }
 
-inline v2 &v2::
-operator*=(float32 A)
+inline float32
+Inner(v2 A, v2 B)
 {
-	*this = A * *this;
+	float32 Result = A.X * B.X + A.Y * B.Y;
 
-	return *this;
+	return Result;
+}
+
+inline float32
+LengthSq(v2 A)
+{
+	float32 Result = Inner(A,A);
+
+	return Result;
 }
 
 #endif
