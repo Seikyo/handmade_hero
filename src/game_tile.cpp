@@ -7,17 +7,18 @@ RecanonicalizeCoord(tile_map *TileMap, uint32 *TileCoord, float32 *TileRelCoord)
 	*TileCoord    += Offset;
 	*TileRelCoord -= Offset * TileMap->TileSideInMeters;
 
-	Assert(*TileRelCoord >= -0.5f * TileMap->TileSideInMeters);
-	Assert(*TileRelCoord <=  0.5f * TileMap->TileSideInMeters);
+	Assert(*TileRelCoord > -0.5f * TileMap->TileSideInMeters);
+	Assert(*TileRelCoord <  0.5f * TileMap->TileSideInMeters);
 }
 
 inline tile_map_position
-RecanonicalizePosition(tile_map *TileMap, tile_map_position Pos)
+MapIntoTileSpace(tile_map *TileMap, tile_map_position Pos, v2 Offset)
 {
 	tile_map_position Result = Pos;
 
-	RecanonicalizeCoord(TileMap, &Result.AbsTileX, &Result.Offset.X);
-	RecanonicalizeCoord(TileMap, &Result.AbsTileY, &Result.Offset.Y);
+	Result.Offset_ += Offset;
+	RecanonicalizeCoord(TileMap, &Result.AbsTileX, &Result.Offset_.X);
+	RecanonicalizeCoord(TileMap, &Result.AbsTileY, &Result.Offset_.Y);
 
 	return Result;
 }
@@ -171,7 +172,7 @@ Substract(tile_map *TileMap, tile_map_position *A, tile_map_position *B)
 				   (float32)A->AbsTileY - (float32)B->AbsTileY };
 	float32 dTileZ = (float32)A->AbsTileZ - (float32)B->AbsTileZ;
 
-	Result.dXY = TileMap->TileSideInMeters * dTileXY + (A->Offset - B->Offset);
+	Result.dXY = TileMap->TileSideInMeters * dTileXY + (A->Offset_ - B->Offset_);
 	Result.dZ = TileMap->TileSideInMeters * dTileZ;
 
 	return Result;

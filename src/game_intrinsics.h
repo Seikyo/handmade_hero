@@ -3,11 +3,48 @@
 
 #include "math.h"
 
+inline int32
+SignOf(int32 Value)
+{
+	int32 Result = (Value >= 0) ? 1 : -1;
+	return Result;
+}
+
+inline float32
+SquareRoot(float32 FloatValue)
+{
+	float32 Result = sqrtf(FloatValue);
+	return Result;
+}
+
 inline float32
 AbsoluteValue(float32 FloatValue)
 {
 	float32 Result = fabs(FloatValue);
+	return Result;
+}
 
+inline uint32
+RotateLeft(uint32 Value, int32 Amount)
+{
+#if COMPILER_MSVC
+	uint32 Result = _rotl(Value, Amount);
+#else
+	Amout &= 31;
+	uint32 Result = ((Value << Amount) | (Value >> ( 32 - Amount)));
+#endif
+	return Result;
+}
+
+inline uint32
+RotateRight(uint32 Value, int32 Amount)
+{
+#if COMPILER_MSVC
+	uint32 Result = _rotr(Value, Amount);
+#else
+	Amout &= 31;
+	uint32 Result = ((Value >> Amount) | (Value << ( 32 - Amount)));
+#endif
 	return Result;
 }
 
@@ -36,6 +73,13 @@ inline int32
 FloorFloat32ToInt32(float32 FloatValue)
 {
 	int32 Result = (uint32)floorf(FloatValue);
+	return Result;
+}
+
+inline int32
+CeilFloat32ToInt32(float32 FloatValue)
+{
+    int32 Result = (int32)ceilf(FloatValue);
 	return Result;
 }
 

@@ -23,12 +23,23 @@ V2(float32 X, float32 Y)
 }
 
 inline v2
-operator*(float32 A, v2 B)
+operator*(float32 B, v2 A)
 {
 	v2 Result;
 
-	Result.X = A * B.X;
-	Result.Y = A * B.Y;
+	Result.X = B * A.X;
+	Result.Y = B * A.Y;
+
+	return Result;
+}
+
+inline v2
+operator*(v2 A, float32 B)
+{
+	v2 Result;
+
+	Result.X = B * A.X;
+	Result.Y = B * A.Y;
 
 	return Result;
 }
